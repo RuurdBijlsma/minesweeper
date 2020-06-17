@@ -1,7 +1,9 @@
 <template>
     <div class="mine-sweeper">
-        <h1 v-if="game.status === ''">Mine Sweeper</h1>
-        <h1 v-else>{{game.status}}</h1>
+        <div class="title">
+            <h1 v-if="game.status === ''">Mine Sweeper</h1>
+            <h1 v-else>{{game.status}}</h1>
+        </div>
         <div class="canvas-container-outer" ref="canvasContainer">
             <div class="canvas-container-inner">
                 <canvas
@@ -69,6 +71,7 @@
                 down: true,
             },
             holdDuration: 300,
+            preventClick: false,
         }),
         mounted() {
             this.canvas = this.$refs.canvas;
@@ -175,6 +178,7 @@
                 this.hold.y = y;
                 this.hold.timeout = setTimeout(() => {
                     this.clickPos(x, y, true);
+                    this.preventClick = true;
                 }, this.holdDuration);
             },
             touchMove(e) {
@@ -189,7 +193,9 @@
             },
             touchEnd() {
                 clearTimeout(this.hold.timeout);
-                this.hold.down = false;
+                setTimeout(() => {
+                    this.preventClick = false;
+                }, 50);
             },
             clickCanvas(e) {
                 e.preventDefault();
@@ -200,6 +206,10 @@
                 this.clickPos(x, y, isRightClick);
             },
             clickPos(x, y, rightClick) {
+                if (this.preventClick) {
+                    this.preventClick = false;
+                    return;
+                }
                 if (this.game.isDead)
                     return;
                 let {width, height} = this.canvas.getBoundingClientRect();
@@ -378,13 +388,14 @@
         text-align: center;
     }
 
-    h1 {
+    .title {
         height: auto;
         padding: 20px;
+        display: inline-block;
     }
 
-    @media only client and (max-width: 424px) {
-        h1 {
+    @media (max-width: 424px) {
+        .title {
             height: 136px;
         }
     }
