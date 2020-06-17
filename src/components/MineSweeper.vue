@@ -381,8 +381,7 @@
 <style scoped>
     .mine-sweeper {
         background-color: rgb(40, 40, 40);
-        height: 100vh;
-        width: 100vw;
+        flex: 1;
         display: flex;
         flex-direction: column;
         text-align: center;
