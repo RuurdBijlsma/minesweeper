@@ -38,13 +38,13 @@
             animation: -1,
             canvasRatio: 1,
             grid: {
-                width: initialGridSize,
-                height: initialGridSize,
+                width: localStorage.getItem('gridWidth') === null ? initialGridSize : +localStorage.gridWidth,
+                height: localStorage.getItem('gridHeight') === null ? initialGridSize : +localStorage.gridHeight,
                 cells: [],
             },
             game: {
                 status: '',
-                nBombs: initialBombs,
+                nBombs: localStorage.getItem('nBombs') === null ? initialBombs : +localStorage.nBombs,
                 actualBombs: 0,
                 showBombs: false,
                 isDead: false,
@@ -95,6 +95,11 @@
         },
         methods: {
             newGame() {
+                localStorage.gridWidth = this.grid.width;
+                localStorage.gridHeight = this.grid.height;
+                localStorage.nBombs = this.game.nBombs;
+                console.log(localStorage.nBombs, this.game.nBombs);
+
                 this.canvasRatio = this.grid.width / this.grid.height;
                 this.resizeCanvas();
                 this.firstClick = true;
@@ -395,7 +400,7 @@
         display: flex;
         flex-direction: column;
         text-align: center;
-        width:100%;
+        width: 100%;
     }
 
     .title {
