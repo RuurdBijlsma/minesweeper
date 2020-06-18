@@ -3,6 +3,7 @@
         <div class="title">
             <h1 v-if="game.status === ''">Mine Sweeper</h1>
             <h1 v-else>{{game.status}}</h1>
+            <p class="flag-count">Flags: <span class="flag">{{grid.cells.filter(c=>c.flag).length}}</span></p>
         </div>
         <div class="canvas-container-outer" ref="canvasContainer">
             <div class="canvas-container-inner">
@@ -223,17 +224,23 @@
                 else
                     this.clickCell(cell);
             },
+            checkWin() {
+                let flags = this.grid.cells.filter(cell => cell.flag);
+                let correctFlags = flags.filter(cell => cell.bomb);
+                console.log(correctFlags, flags, this.game.nBombs, this.grid.cells.every(cell => cell.revealed || cell.flag));
+                if (correctFlags.length === +this.game.actualBombs &&
+                    correctFlags.length === flags.length &&
+                    this.grid.cells.every(cell => cell.revealed || cell.flag)
+                )
+                    this.game.status = 'You win!';
+            },
             flagCell(cell) {
                 if (cell.revealed)
                     return;
                 cell.flag = !cell.flag;
-                let flags = this.grid.cells.filter(cell => cell.flag);
-                let correctFlags = flags.filter(cell => cell.bomb);
-                console.log(correctFlags, flags, this.game.nBombs);
-                if (correctFlags.length === +this.game.actualBombs && correctFlags.length === flags.length)
-                    this.game.status = 'You win!';
+                this.checkWin();
             },
-            clickCell(cell) {
+            clickCell(cell, check = true) {
                 if (cell.flag)
                     return;
                 if (this.firstClick) {
@@ -251,8 +258,10 @@
                     if (cell.bombNeighbours === 0) {
                         cell.neighbours
                             .filter(c => !c.revealed)
-                            .forEach(this.clickCell);
+                            .forEach(c => this.clickCell(c, false));
                     }
+                    if (check)
+                        this.checkWin();
                 }
             },
             getCell(x, y, cells = this.grid.cells) {
@@ -330,6 +339,7 @@
                 }
             },
             resizeCanvas() {
+                console.log("Resize")
                 let {width, height} = this.$refs.canvasContainer.getBoundingClientRect();
                 let containerRatio = width / height;
                 let canvasWidth, canvasHeight;
@@ -385,6 +395,7 @@
         display: flex;
         flex-direction: column;
         text-align: center;
+        width:100%;
     }
 
     .title {
@@ -393,9 +404,18 @@
         display: inline-block;
     }
 
-    @media (max-width: 424px) {
+    .flag-count {
+        font-size: 14px;
+        margin-top: 10px;
+    }
+
+    .flag {
+        color: red;
+    }
+
+    @media (max-width: 522px) {
         .title {
-            height: 136px;
+            height: 160px;
         }
     }
 
