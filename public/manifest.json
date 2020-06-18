@@ -4,7 +4,7 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#333130",
-  "theme_color": "#e45908",
+  "theme_color": "#ff0000",
   "description": "Sweep them mines.",
   "icons": [
     {
