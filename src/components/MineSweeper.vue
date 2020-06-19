@@ -8,6 +8,7 @@
         <div class="canvas-container-outer" ref="canvasContainer">
             <div class="canvas-container-inner">
                 <canvas
+                        :style="`pointer-events: ${hold.nTouches > 1 ? 'none' : 'all'}`"
                         ref="canvas"
                         class="canvas"
                         @touchstart="touchStart"
@@ -70,6 +71,7 @@
                 timeout: -1,
                 x: 0, y: 0,
                 down: true,
+                nTouches: 0,
             },
             holdDuration: 300,
             preventClick: false,
@@ -176,6 +178,11 @@
                 ]
             },
             touchStart(e) {
+                this.hold.nTouches = e.touches.length;
+                console.log('toucheslength', e.touches.length);
+                // if (e.touches.length > 1)
+                //     this.touchEnd();
+                console.log('touchstart');
                 let {top, left} = this.canvas.getBoundingClientRect();
                 let x = e.touches[0].clientX - left;
                 let y = e.touches[0].clientY - top;
@@ -183,11 +190,16 @@
                 this.hold.x = x;
                 this.hold.y = y;
                 this.hold.timeout = setTimeout(() => {
-                    this.clickPos(x, y, true);
-                    this.preventClick = true;
+                    console.warn('touches length', this.hold.nTouches);
+                    if (this.hold.nTouches === 1) {
+                        this.clickPos(x, y, true);
+                        this.preventClick = true;
+                    }
                 }, this.holdDuration);
             },
             touchMove(e) {
+                this.hold.nTouches = e.touches.length;
+                console.log('touchmove');
                 let {top, left} = this.canvas.getBoundingClientRect();
                 let x = e.touches[0].clientX - left;
                 let y = e.touches[0].clientY - top;
@@ -197,7 +209,9 @@
                     this.touchEnd();
                 }
             },
-            touchEnd() {
+            touchEnd(e) {
+                if (e && e.touches)
+                    this.hold.nTouches = e.touches.length;
                 clearTimeout(this.hold.timeout);
                 setTimeout(() => {
                     this.preventClick = false;
