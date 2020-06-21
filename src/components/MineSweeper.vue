@@ -3,7 +3,7 @@
         <div class="title">
             <h1 v-if="game.status === ''">Mine Sweeper</h1>
             <h1 v-else>{{game.status}}</h1>
-            <p class="flag-count">Flags: <span class="flag">{{grid.cells.filter(c=>c.flag).length}}</span></p>
+            <p class="flag-count">Flags: <span class="flag">{{game.flagCount}}</span></p>
         </div>
         <div class="canvas-container-outer" ref="canvasContainer">
             <div class="canvas-container-inner">
@@ -25,7 +25,11 @@
                 <v-text-field type="number" label="Height" v-model="grid.height"></v-text-field>
                 <v-text-field type="number" label="Bombs" v-model="game.nBombs" :rules="bombRules"></v-text-field>
             </div>
-            <v-btn @click="newGame" color="primary" class="new-game-button">New Game</v-btn>
+            <div class="buttons">
+                <v-btn @mousedown="computerMove(showMoves++)" color="primary" class="new-game-button">Computer Move
+                </v-btn>
+                <v-btn @click="newGame" color="primary" class="new-game-button">New Game</v-btn>
+            </div>
         </div>
     </div>
 </template>
@@ -33,6 +37,9 @@
 <script>
     const initialGridSize = window.innerWidth > 600 ? 20 : 12;
     const initialBombs = initialGridSize === 20 ? 60 : 30;
+
+    let gridCells = [];
+
     export default {
         name: 'MineSweeper',
         data: () => ({
@@ -41,14 +48,13 @@
             grid: {
                 width: localStorage.getItem('gridWidth') === null ? initialGridSize : +localStorage.gridWidth,
                 height: localStorage.getItem('gridHeight') === null ? initialGridSize : +localStorage.gridHeight,
-                cells: [],
             },
             game: {
                 status: '',
                 nBombs: localStorage.getItem('nBombs') === null ? initialBombs : +localStorage.nBombs,
                 actualBombs: 0,
-                showBombs: false,
                 isDead: false,
+                flagCount: 0,
             },
             firstClick: true,
             images: {
@@ -67,6 +73,7 @@
                 }
             },
             touchTime: false,
+            showMoves: 1,
             hold: {
                 timeout: -1,
                 x: 0, y: 0,
@@ -96,25 +103,72 @@
             clearTimeout(this.hold.timeout);
         },
         methods: {
+            computerMove(nMoves = Infinity) {
+                let didMove = false;
+
+                // First click
+                if (gridCells.every(cell => !cell.revealed)) {
+                    let cell = this.getCell(1 + Math.floor((this.grid.width - 2) * Math.random()),
+                        1 + Math.floor((this.grid.height - 2) * Math.random()));
+
+                    didMove = true;
+                    if (nMoves-- === 0)
+                        return;
+                    this.clickCell(cell);
+                }
+
+                for (let cell of gridCells) {
+                    if (cell.revealed && cell.bombNeighbours > 0) {
+                        let flaggedNeighbours = cell.neighbours.filter(c => c.flag);
+                        let unrevealedNeighbours = cell.neighbours.filter(c => !c.revealed && !c.flag);
+                        let possibleBombSpots = flaggedNeighbours.length + unrevealedNeighbours.length;
+
+                        if (unrevealedNeighbours.length > 0 && cell.bombNeighbours === possibleBombSpots) {
+                            // Flag obvious cells
+                            for (let c of unrevealedNeighbours) {
+                                didMove = true;
+                                if (!c.flag) {
+                                    if (nMoves-- === 0)
+                                        return;
+                                    this.flagCell(c);
+                                }
+                            }
+                        } else if (flaggedNeighbours.length === cell.bombNeighbours) {
+                            // Click obvious unrevealed cells
+                            for (let c of unrevealedNeighbours) {
+                                didMove = true;
+                                if (!c.revealed) {
+                                    if (nMoves-- === 0)
+                                        return;
+                                    this.clickCell(c);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return didMove;
+            },
             newGame() {
                 localStorage.gridWidth = this.grid.width;
                 localStorage.gridHeight = this.grid.height;
                 localStorage.nBombs = this.game.nBombs;
-                console.log(localStorage.nBombs, this.game.nBombs);
 
                 this.canvasRatio = this.grid.width / this.grid.height;
                 this.resizeCanvas();
                 this.firstClick = true;
-                this.grid.cells = this.getCells();
+                gridCells = this.getCells();
                 this.game.status = '';
-                this.game.showBombs = false;
                 this.game.isDead = false;
+                this.game.flagCount = 0;
             },
             getCells() {
                 let cells = [];
+                let i = 0;
                 for (let y = 0; y < this.grid.height; y++) {
                     for (let x = 0; x < this.grid.width; x++) {
                         cells.push({
+                            index: i++,
                             x, y,
                             revealed: false,
                             bomb: false,
@@ -130,7 +184,6 @@
 
                 let notBombs = this.getNeighbours(...startPos).map(pos => this.getCell(...pos, cells)).filter(n => n !== undefined);
                 notBombs.push(this.getCell(...startPos, cells));
-                console.log(notBombs);
 
                 if (this.game.nBombs > cells.length - notBombs.length)
                     console.warn("There are move bombs than grid cells, clamping game.nBombs to", cells.length - notBombs.length);
@@ -147,6 +200,7 @@
                 }
                 cells = cells.concat(bombCells);
                 cells = cells.concat(notBombs);
+                cells = cells.sort((a, b) => a.index - b.index);
 
                 for (let cell of cells) {
                     cell.neighbours = this.getNeighbours(cell.x, cell.y)
@@ -179,10 +233,6 @@
             },
             touchStart(e) {
                 this.hold.nTouches = e.touches.length;
-                console.log('toucheslength', e.touches.length);
-                // if (e.touches.length > 1)
-                //     this.touchEnd();
-                console.log('touchstart');
                 let {top, left} = this.canvas.getBoundingClientRect();
                 let x = e.touches[0].clientX - left;
                 let y = e.touches[0].clientY - top;
@@ -190,7 +240,6 @@
                 this.hold.x = x;
                 this.hold.y = y;
                 this.hold.timeout = setTimeout(() => {
-                    console.warn('touches length', this.hold.nTouches);
                     if (this.hold.nTouches === 1) {
                         this.clickPos(x, y, true);
                         this.preventClick = true;
@@ -199,13 +248,11 @@
             },
             touchMove(e) {
                 this.hold.nTouches = e.touches.length;
-                console.log('touchmove');
                 let {top, left} = this.canvas.getBoundingClientRect();
                 let x = e.touches[0].clientX - left;
                 let y = e.touches[0].clientY - top;
                 let distance = Math.sqrt((this.hold.x - x) ** 2 + (this.hold.y - y) ** 2);
                 if (distance > 30) {
-                    console.log("Cancelling hold");
                     this.touchEnd();
                 }
             },
@@ -244,51 +291,56 @@
                     this.clickCell(cell);
             },
             checkWin() {
-                let flags = this.grid.cells.filter(cell => cell.flag);
-                let correctFlags = flags.filter(cell => cell.bomb);
-                console.log(correctFlags, flags, this.game.nBombs, this.grid.cells.every(cell => cell.revealed || cell.flag));
-                if (correctFlags.length === +this.game.actualBombs &&
-                    correctFlags.length === flags.length &&
-                    this.grid.cells.every(cell => cell.revealed || cell.flag)
-                )
+                let revealedCells = gridCells.filter(cell => cell.revealed).length;
+                if (this.grid.width * this.grid.height === revealedCells + this.game.actualBombs)
                     this.game.status = 'You win!';
             },
             flagCell(cell) {
                 if (cell.revealed)
                     return;
                 cell.flag = !cell.flag;
+                if (cell.flag) {
+                    this.game.flagCount++;
+                } else {
+                    this.game.flagCount--;
+                }
                 this.checkWin();
             },
-            clickCell(cell, check = true) {
+            clickCell(cell) {
                 if (cell.flag)
                     return;
                 if (this.firstClick) {
-                    this.grid.cells = this.generateField([cell.x, cell.y]);
+                    gridCells = this.generateField([cell.x, cell.y]);
                     cell = this.getCell(cell.x, cell.y);
-                    console.log("First click, continuing?");
                     this.firstClick = false;
                 }
                 if (cell.bomb) {
                     this.game.status = 'You die!';
                     this.game.isDead = true;
-                    this.game.showBombs = true;
                 } else {
                     cell.revealed = true;
                     if (cell.bombNeighbours === 0) {
-                        cell.neighbours
-                            .filter(c => !c.revealed)
-                            .forEach(c => this.clickCell(c, false));
+                        let breadth = cell.neighbours;
+                        while (breadth.length > 0) {
+                            let newBreadth = [];
+                            for (let c of breadth)
+                                if (!c.revealed && !c.flag) {
+                                    c.revealed = true;
+                                    if (c.bombNeighbours === 0)
+                                        newBreadth = newBreadth.concat(c.neighbours);
+                                }
+                            breadth = newBreadth;
+                        }
                     }
-                    if (check)
-                        this.checkWin();
+                    this.checkWin();
                 }
             },
-            getCell(x, y, cells = this.grid.cells) {
-                for (let cell of cells) {
-                    if (cell === undefined)
-                        console.log(cells, cell);
-                }
-                return cells.find(cell => cell.x === x && cell.y === y);
+            getCell(x, y, cells = gridCells, width = this.grid.width, height = this.grid.height) {
+                if (x >= width || x < 0)
+                    return undefined;
+                if (y >= height || y < 0)
+                    return undefined;
+                return cells[y * width + x];
             },
             render() {
                 this.animation = requestAnimationFrame(this.render);
@@ -324,8 +376,8 @@
                 let cellWidth = 16;
                 let cellHeight = 16;
 
-                for (let cell of this.grid.cells) {
-                    if (cell.bomb && this.game.showBombs) {
+                for (let cell of gridCells) {
+                    if (cell.bomb && this.game.isDead) {
                         this.context.drawImage(this.images.bomb,
                             cell.x * cellWidth,
                             cell.y * cellHeight,
@@ -358,7 +410,6 @@
                 }
             },
             resizeCanvas() {
-                console.log("Resize")
                 let {width, height} = this.$refs.canvasContainer.getBoundingClientRect();
                 let containerRatio = width / height;
                 let canvasWidth, canvasHeight;
@@ -394,7 +445,6 @@
             maxBombs() {
                 let maxBombs = this.grid.width * this.grid.height;
                 let clearSpaces = Math.min(this.grid.width, this.grid.height, 3) * 3;
-                console.log(maxBombs - clearSpaces)
                 return maxBombs - clearSpaces;
             },
             bombRules() {
@@ -468,6 +518,19 @@
         width: calc(100% - 30px);
         margin: 20px auto;
         padding: 0 15px;
+    }
+
+    .buttons {
+        width: 100%;
+        display: flex;
+    }
+
+    .buttons > *:nth-child(2) {
+        margin-left: 10px;
+    }
+
+    .buttons > * {
+        flex-grow: 1;
     }
 
     .text-fields {
