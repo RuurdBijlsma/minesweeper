@@ -26,7 +26,8 @@
                 <v-text-field type="number" label="Bombs" v-model="game.nBombs" :rules="bombRules"></v-text-field>
             </div>
             <div class="buttons">
-                <v-btn @mousedown="computerMove(showMoves++)" color="primary" class="new-game-button">Computer Move
+                <v-btn @mousedown="computerMove(Math.ceil(showMoves++ / 10))" color="primary" class="new-game-button">
+                    Computer Move
                 </v-btn>
                 <v-btn @click="newGame" color="primary" class="new-game-button">New Game</v-btn>
             </div>
@@ -157,6 +158,7 @@
                 this.canvasRatio = this.grid.width / this.grid.height;
                 this.resizeCanvas();
                 this.firstClick = true;
+                this.showMoves = 1;
                 gridCells = this.getCells();
                 this.game.status = '';
                 this.game.isDead = false;
