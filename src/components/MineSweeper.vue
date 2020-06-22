@@ -27,8 +27,10 @@
             </div>
             <div class="buttons">
                 <v-btn @mousedown="computerMove(Math.ceil(showMoves++ / 10))" color="primary" class="new-game-button">
-                    Computer Move
+                    Move Hint
                 </v-btn>
+                <!--                <v-btn @mousedown="computerMove" color="primary" class="new-game-button">Move Hint</v-btn>-->
+                <!--                <v-btn @mousedown="solve" color="primary" class="new-game-button">solve</v-btn>-->
                 <v-btn @click="newGame" color="primary" class="new-game-button">New Game</v-btn>
             </div>
         </div>
@@ -104,6 +106,70 @@
             clearTimeout(this.hold.timeout);
         },
         methods: {
+            solve() {
+                while (this.computerMove()) {
+                }
+            },
+            smartMove(nMoves = Infinity) {
+                let didMove = false;
+                let cellGroups = [];
+
+                for (let cell of gridCells) {
+                    if (cell.revealed && cell.bombNeighbours > 0) {
+                        let unrevealedNeighbours = cell.neighbours.filter(c => !c.revealed && !c.flag);
+                        if (unrevealedNeighbours.length > 0) {
+                            let flaggedNeighbours = cell.neighbours.filter(c => c.flag);
+                            let possibleBombSpots = cell.bombNeighbours - flaggedNeighbours.length;
+
+                            let duplicateIndex = cellGroups.findIndex(group => this.arrayEquals(group.cells, unrevealedNeighbours))
+                            if (duplicateIndex === -1) {
+                                cellGroups.push({
+                                    bombs: possibleBombSpots,
+                                    cells: unrevealedNeighbours,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                console.log(cellGroups);
+
+                for (let cellGroup of cellGroups) {
+                    let otherGroups = cellGroups.filter(c => c !== cellGroup);
+                    for (let otherGroup of otherGroups) {
+                        if (this.arrayContains(cellGroup.cells, otherGroup.cells)) {
+                            //Current group fully contains other group
+                            let remainingBombs = cellGroup.bombs - otherGroup.bombs;
+                            let remainingCellCount = cellGroup.cells.length - otherGroup.cells.length;
+
+                            console.log(remainingBombs, remainingCellCount);
+
+                            if (remainingCellCount === 0 || !(remainingBombs === remainingCellCount || remainingBombs === 0))
+                                break;
+
+                            let flag = remainingBombs === remainingCellCount;
+                            let remainingCells = cellGroup.cells.filter(cell => !otherGroup.cells.includes(cell));
+                            for (let cell of remainingCells) {
+                                if (flag && !cell.flag) {
+                                    if (nMoves-- === 0)
+                                        return [true, nMoves];
+                                    didMove = true;
+                                    console.log("Doing smart flag");
+                                    this.flagCell(cell);
+                                } else if (!flag && !cell.revealed) {
+                                    if (nMoves-- === 0)
+                                        return [true, nMoves];
+                                    didMove = true;
+                                    console.log("Doing smart click");
+                                    this.clickCell(cell);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return [didMove, nMoves];
+            },
             computerMove(nMoves = Infinity) {
                 let didMove = false;
 
@@ -148,7 +214,21 @@
                     }
                 }
 
-                return didMove;
+                let didSmartMove;
+                [didSmartMove, nMoves] = this.smartMove(nMoves);
+
+                return didMove || didSmartMove;
+            },
+            arrayContains(outerArray, subArray) {
+                return subArray.every(item => outerArray.includes(item));
+            },
+            arrayEquals(seqA, seqB) {
+                if (seqA.length !== seqB.length)
+                    return false;
+                for (let i = 0; i < seqA.length; i++)
+                    if (seqA[i] !== seqB[i])
+                        return false;
+                return true;
             },
             newGame() {
                 localStorage.gridWidth = this.grid.width;
@@ -538,9 +618,10 @@
         .buttons {
             flex-direction: column;
         }
+
         .buttons > *:nth-child(2) {
             margin-top: 10px;
-            margin-left:0;
+            margin-left: 0;
         }
     }
 
