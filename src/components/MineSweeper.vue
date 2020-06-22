@@ -525,10 +525,23 @@
     .buttons {
         width: 100%;
         display: flex;
+        flex-direction: row;
     }
 
     .buttons > *:nth-child(2) {
         margin-left: 10px;
+        margin-top: 0;
+    }
+
+    @media (max-width: 522px) {
+
+        .buttons {
+            flex-direction: column;
+        }
+        .buttons > *:nth-child(2) {
+            margin-top: 10px;
+            margin-left:0;
+        }
     }
 
     .buttons > * {
